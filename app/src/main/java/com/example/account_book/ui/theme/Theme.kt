@@ -17,7 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// 蓝色主题 - 亮色模式
+// 蓝色主题 - 亮色模式（降低饱和度版本）
 val BlueLightColorScheme = lightColorScheme(
     primary = BluePrimary,
     onPrimary = Color.White,
@@ -31,10 +31,12 @@ val BlueLightColorScheme = lightColorScheme(
     background = BlueExtraLight,
     onBackground = BlueDark,
     surface = Color.White,
-    onSurface = BlueDark,
+    onSurface = Color(0xFF3A3A3A),           // 深化文字颜色，保持可读性
+    surfaceVariant = BlueLight,
+    onSurfaceVariant = BlueDark,
     error = ExpenseRed,
     onError = Color.White,
-    outline = BlueLight
+    outline = Color(0xFFB8B8B8)              // 柔和的边框颜色
 )
 
 // 蓝色主题 - 暗色模式
@@ -52,21 +54,20 @@ val BlueDarkColorScheme = darkColorScheme(
     onBackground = BlueLight,
     surface = Color(0xFF1E1E1E),
     onSurface = BlueLight,
+    surfaceVariant = Color(0xFF2A2A2A),
+    onSurfaceVariant = Color(0xFFB0B0B0),
     error = ExpenseRed.copy(alpha = 0.8f),
-    onError = Color.White
+    onError = Color.White,
+    outline = Color(0xFF444444)
 )
 
 @Composable
 fun AccountBookTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
         darkTheme -> BlueDarkColorScheme
         else -> BlueLightColorScheme
     }
@@ -76,7 +77,7 @@ fun AccountBookTheme(
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = colorScheme.primary.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            WindowCompat.getInsetsController(window, view)?.isAppearanceLightStatusBars = !darkTheme
         }
     }
 

@@ -1,3 +1,4 @@
+// app/src/main/java/com/example/account_book/AiChatScreen.kt
 package com.example.account_book
 
 import androidx.compose.foundation.background
@@ -65,12 +66,24 @@ fun AiChatScreen() {
                         Box(
                             modifier = Modifier
                                 .background(
-                                    if (msg.isUser) Color(0xFFDCF8C6) else Color(0xFFF5F5F5),
+                                    if (msg.isUser) {
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                    },
                                     shape = RoundedCornerShape(16.dp)
                                 )
                                 .padding(12.dp)
                         ) {
-                            Text(msg.text, fontSize = 16.sp, color = Color.Black)
+                            Text(
+                                msg.text,
+                                fontSize = 16.sp,
+                                color = if (msg.isUser) {
+                                    MaterialTheme.colorScheme.onPrimary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
                         }
                     }
                 }
@@ -118,7 +131,6 @@ fun AiChatScreen() {
         }
     }
 }
-
 
 // 示例：模拟AI回复
 fun getAiReply(userInput: String): String {

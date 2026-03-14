@@ -48,11 +48,29 @@ data class BottomNavItem(
     val icon: Int
 )
 
+// 创建全局的主题状态容器
+object ThemeState {
+    private val _isDarkMode = mutableStateOf(false)
+    val isDarkMode: State<Boolean> = _isDarkMode
+
+    fun setDarkMode(isDark: Boolean) {
+        _isDarkMode.value = isDark
+    }
+
+    fun toggleDarkMode() {
+        _isDarkMode.value = !_isDarkMode.value
+    }
+}
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            AccountBookTheme {
+            val isDarkMode by ThemeState.isDarkMode
+            AccountBookTheme(
+                darkTheme = isDarkMode,
+                dynamicColor = false
+            ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -85,6 +103,9 @@ fun AccountBookApp() {
                 composable("profile") {
                     ProfileScreen()
                 }
+                composable("ai_chat") {
+                    AiChatScreen()
+                }
                 composable("add_transaction") {
                     AddTransactionScreen(
                         onNavigateBack = {
@@ -101,6 +122,7 @@ fun AccountBookApp() {
 fun BottomNavigationBar(navController: NavController) {
     val items = listOf(
         BottomNavItem(title = "首页", route = "home", icon = android.R.drawable.ic_menu_gallery),
+        BottomNavItem(title = "AI", route = "ai_chat", icon = android.R.drawable.ic_menu_search),
         BottomNavItem(title = "我的", route = "profile", icon = android.R.drawable.ic_menu_my_calendar)
     )
     val navBackStackEntry by navController.currentBackStackEntryAsState()

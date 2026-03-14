@@ -25,7 +25,8 @@ import com.example.account_book.ui.theme.IncomeGreen
 @Composable
 fun ProfileScreen() {
     val scrollState = rememberScrollState()
-    var isDarkMode by remember { mutableStateOf(false) }
+    // 从全局状态获取深色模式值
+    val isDarkMode by ThemeState.isDarkMode
     var isNotificationsEnabled by remember { mutableStateOf(true) }
     val summary = TransactionRepository.getSummary()
     val allTransactions = TransactionRepository.getAllTransactions()
@@ -288,7 +289,9 @@ fun ProfileScreen() {
                     trailingContent = {
                         Switch(
                             checked = isDarkMode,
-                            onCheckedChange = { isDarkMode = it },
+                            onCheckedChange = {
+                                ThemeState.setDarkMode(it)
+                            },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = MaterialTheme.colorScheme.primary,
                                 checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
