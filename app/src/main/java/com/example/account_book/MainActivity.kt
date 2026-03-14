@@ -100,11 +100,14 @@ fun AccountBookApp() {
                         }
                     )
                 }
-                composable("profile") {
-                    ProfileScreen()
+                composable("account_management") {
+                    AccountBookManagementScreen()
                 }
                 composable("ai_chat") {
                     AiChatScreen()
+                }
+                composable("profile") {
+                    ProfileScreen()
                 }
                 composable("add_transaction") {
                     AddTransactionScreen(
@@ -122,6 +125,7 @@ fun AccountBookApp() {
 fun BottomNavigationBar(navController: NavController) {
     val items = listOf(
         BottomNavItem(title = "首页", route = "home", icon = android.R.drawable.ic_menu_gallery),
+        BottomNavItem(title = "账本", route = "account_management", icon = android.R.drawable.ic_menu_edit),
         BottomNavItem(title = "AI", route = "ai_chat", icon = android.R.drawable.ic_menu_search),
         BottomNavItem(title = "我的", route = "profile", icon = android.R.drawable.ic_menu_my_calendar)
     )
