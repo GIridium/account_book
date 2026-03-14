@@ -7,9 +7,10 @@ import java.time.LocalDate
 data class Transaction(
     val id: Long,
     val amount: BigDecimal,
-    val category: String,
-    val note: String?,
+    val categoryId: Long,
+    val categoryName: String,
+    val remark: String?,
+    val merchant: String?,
     val date: LocalDate,
-    val createdAt: Instant,
-    val updatedAt: Instant
+    val createdAt: Instant
 )

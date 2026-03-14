@@ -11,11 +11,14 @@ data class UpdateTransactionRequest(
     @field:DecimalMin(value = "0.01", message = "amount must be greater than 0")
     val amount: BigDecimal?,
 
-    @field:NotBlank(message = "category cannot be blank")
-    val category: String?,
+    @field:NotNull(message = "category cannot be null")
+    val categoryId: Long?,
 
-    val note: String?,
+    val remark: String?,
+
+    val merchant: String?,
 
     @field:NotNull
     val date: LocalDate?
 )
+

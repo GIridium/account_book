@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.example.app.TransactionApiTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-03-14T13:08:31.073Z" hostname="LAPTOP-F8G7V5FV" time="0.518">
+  <properties/>
+  <testcase name="should create, retrieve, update and delete a transaction()" classname="com.example.app.TransactionApiTest" time="0.518"/>
+  <system-out><![CDATA[2026-03-14T21:08:28.082+08:00  INFO 42808 --- [account-book-backend] [    Test worker] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.example.app.Application for test class com.example.app.TransactionApiTest
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.3.5)
+
+2026-03-14T21:08:28.127+08:00  INFO 42808 --- [account-book-backend] [    Test worker] com.example.app.TransactionApiTest       : Starting TransactionApiTest using Java 21.0.9 with PID 42808 (started by lenovo in D:\project\AndroidProject\code_learning\backend\accountbook_backend\account_book\backend)
+2026-03-14T21:08:28.127+08:00  INFO 42808 --- [account-book-backend] [    Test worker] com.example.app.TransactionApiTest       : No active profile set, falling back to 1 default profile: "default"
+2026-03-14T21:08:28.289+08:00  INFO 42808 --- [account-book-backend] [    Test worker] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-03-14T21:08:28.300+08:00  INFO 42808 --- [account-book-backend] [    Test worker] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 10 ms. Found 3 JPA repository interfaces.
+2026-03-14T21:08:28.384+08:00  INFO 42808 --- [account-book-backend] [    Test worker] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Starting...
+2026-03-14T21:08:28.423+08:00  INFO 42808 --- [account-book-backend] [    Test worker] com.zaxxer.hikari.pool.HikariPool        : HikariPool-2 - Added connection org.postgresql.jdbc.PgConnection@f3876ef
+2026-03-14T21:08:28.423+08:00  INFO 42808 --- [account-book-backend] [    Test worker] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Start completed.
+2026-03-14T21:08:28.424+08:00  INFO 42808 --- [account-book-backend] [    Test worker] org.flywaydb.core.FlywayExecutor         : Database: jdbc:postgresql://localhost:5432/account_book (PostgreSQL 18.3)
+2026-03-14T21:08:28.426+08:00  WARN 42808 --- [account-book-backend] [    Test worker] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: PostgreSQL 18.3 is newer than this version of Flyway and support has not been tested. The latest supported version of PostgreSQL is 16.
+2026-03-14T21:08:28.434+08:00  INFO 42808 --- [account-book-backend] [    Test worker] o.f.c.i.command.clean.CleanExecutor      : Successfully dropped pre-schema database level objects (execution time 00:00.000s)
+2026-03-14T21:08:28.504+08:00  INFO 42808 --- [account-book-backend] [    Test worker] o.f.c.i.command.clean.CleanExecutor      : Successfully cleaned schema "public" (execution time 00:00.068s)
+2026-03-14T21:08:28.510+08:00  INFO 42808 --- [account-book-backend] [    Test worker] o.f.c.i.command.clean.CleanExecutor      : Successfully cleaned schema "public" (execution time 00:00.005s)
+2026-03-14T21:08:28.510+08:00  INFO 42808 --- [account-book-backend] [    Test worker] o.f.c.i.command.clean.CleanExecutor      : Successfully dropped post-schema database level objects (execution time 00:00.000s)
+2026-03-14T21:08:28.656+08:00  WARN 42808 --- [account-book-backend] [    Test worker] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: PostgreSQL 18.3 is newer than this version of Flyway and support has not been tested. The latest supported version of PostgreSQL is 16.
+2026-03-14T21:08:28.658+08:00  INFO 42808 --- [account-book-backend] [    Test worker] o.f.c.i.s.JdbcTableSchemaHistory         : Schema history table "public"."flyway_schema_history" does not exist yet
+2026-03-14T21:08:28.659+08:00  INFO 42808 --- [account-book-backend] [    Test worker] o.f.core.internal.command.DbValidate     : Successfully validated 1 migration (execution time 00:00.002s)
+2026-03-14T21:08:28.670+08:00  INFO 42808 --- [account-book-backend] [    Test worker] o.f.c.i.s.JdbcTableSchemaHistory         : Creating Schema History table "public"."flyway_schema_history" ...
+2026-03-14T21:08:28.713+08:00  INFO 42808 --- [account-book-backend] [    Test worker] o.f.core.internal.command.DbMigrate      : Current version of schema "public": << Empty Schema >>
+2026-03-14T21:08:28.725+08:00  INFO 42808 --- [account-book-backend] [    Test worker] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "1 - Init Schema"
+2026-03-14T21:08:28.761+08:00  INFO 42808 --- [account-book-backend] [    Test worker] o.f.core.internal.command.DbMigrate      : Successfully applied 1 migration to schema "public", now at version v1 (execution time 00:00.025s)
+2026-03-14T21:08:28.829+08:00  INFO 42808 --- [account-book-backend] [    Test worker] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-03-14T21:08:28.891+08:00  INFO 42808 --- [account-book-backend] [    Test worker] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.5.3.Final
+2026-03-14T21:08:28.917+08:00  INFO 42808 --- [account-book-backend] [    Test worker] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-03-14T21:08:29.127+08:00  INFO 42808 --- [account-book-backend] [    Test worker] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-03-14T21:08:29.174+08:00  WARN 42808 --- [account-book-backend] [    Test worker] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-03-14T21:08:29.745+08:00  INFO 42808 --- [account-book-backend] [    Test worker] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-03-14T21:08:29.773+08:00  INFO 42808 --- [account-book-backend] [    Test worker] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-03-14T21:08:30.111+08:00  INFO 42808 --- [account-book-backend] [    Test worker] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
+Hibernate: 
+    select
+        ue1_0.id,
+        ue1_0.created_at,
+        ue1_0.nickname,
+        ue1_0.password_hash,
+        ue1_0.username 
+    from
+        users ue1_0 
+    where
+        ue1_0.username=?
+Hibernate: 
+    insert 
+    into
+        users
+        (created_at, nickname, password_hash, username) 
+    values
+        (?, ?, ?, ?) 
+    returning id
+2026-03-14T21:08:30.704+08:00  WARN 42808 --- [account-book-backend] [    Test worker] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-03-14T21:08:31.055+08:00  INFO 42808 --- [account-book-backend] [    Test worker] o.s.b.t.m.w.SpringBootMockServletContext : Initializing Spring TestDispatcherServlet ''
+2026-03-14T21:08:31.055+08:00  INFO 42808 --- [account-book-backend] [    Test worker] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-03-14T21:08:31.057+08:00  INFO 42808 --- [account-book-backend] [    Test worker] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 2 ms
+2026-03-14T21:08:31.064+08:00  INFO 42808 --- [account-book-backend] [    Test worker] com.example.app.TransactionApiTest       : Started TransactionApiTest in 2.962 seconds (process running for 5.188)
+Hibernate: 
+    select
+        ce1_0.id,
+        ce1_0.icon,
+        ce1_0.name,
+        ce1_0.user_id 
+    from
+        categories ce1_0 
+    where
+        ce1_0.name=?
+Hibernate: 
+    select
+        ue1_0.id,
+        ue1_0.created_at,
+        ue1_0.nickname,
+        ue1_0.password_hash,
+        ue1_0.username 
+    from
+        users ue1_0 
+    where
+        ue1_0.username=?
+Hibernate: 
+    insert 
+    into
+        bills
+        (amount, bill_date, category_id, created_at, merchant, remark, shared_book_id, user_id) 
+    values
+        (?, ?, ?, ?, ?, ?, ?, ?) 
+    returning id
+Hibernate: 
+    update
+        bills 
+    set
+        amount=?,
+        bill_date=?,
+        category_id=?,
+        merchant=?,
+        remark=?,
+        shared_book_id=?,
+        user_id=? 
+    where
+        id=?
+Hibernate: 
+    select
+        count(*) 
+    from
+        bills be1_0 
+    where
+        be1_0.id=?
+]]></system-out>
+  <system-err><![CDATA[WARNING: A Java agent has been loaded dynamically (D:\Android\Gradle\caches\modules-2\files-2.1\net.bytebuddy\byte-buddy-agent\1.14.19\154da3a65b4f4a909d3e5bdec55d1b2b4cbb6ce1\byte-buddy-agent-1.14.19.jar)
+WARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning
+WARNING: If a serviceability tool is not in use, please run with -Djdk.instrument.traceUsage for more information
+WARNING: Dynamic loading of agents will be disallowed by default in a future release
+]]></system-err>
+</testsuite>

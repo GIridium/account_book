@@ -1,133 +1,97 @@
 # 后端开发下一步计划
 
-## 当前进度（2026-03-09）
+## 当前进度（2026-03-14 更新）
 
-- 后端服务可以正常启动（`bootRun`）。
-- 健康检查接口可用：`GET /api/health` 返回 `200`。
-- 交易接口的基础 CRUD 流程已打通。
-- 当前存储方式是**内存存储**，不是真实数据库持久化。
-- 本项目 Gradle/JDK 环境已基本稳定（项目使用 JDK 21）。
+- **数据库严格落地**：`V1__Init_Schema.sql` 已对齐设计文档，包含 `users`, `categories`, `bills`, `saving_goals`, `shared_books`, `shared_book_members` 表结构及索引、约束。默认分类数据已初始化。
+- **账单主流程打通**：`TransactionController` 及 Service 层已实现基于数据库的 CRUD（增删改查）。
+- **自动化验证通过**：新增 `TransactionApiTest` 集成测试，验证了数据库连接、Flyway 迁移、数据初始化及 API 契约一致性。
+- **接口契约升级**：`Create/UpdateTransactionRequest` 已升级为强类型校验（`categoryId`, `merchant`, `remark`），符合前端对接需求。
 
-## 当前核心问题
+## 已完成任务
 
-后端仍使用内存存储，服务重启后数据会丢失，需要尽快切换到真实数据库。
+### 1. 数据库基线建设
+- [x] 完成 `V1__Init_Schema.sql` 编写，包含完整约束与默认分类初始化。
+- [x] 配置 Flyway 自动迁移与测试环境自动清理策略。
+- [x] 验证 PostgreSQL 连接与 Schema 落地。
 
-## 阶段目标
+### 2. 核心业务接口实现（Bills）
+- [x] `BillEntity` 与数据库表结构对齐（字段类型、索引、外键）。
+- [x] `TransactionService` 实现分类 ID 关联查找与默认用户兜底。
+- [x] 实现并验证 POST/GET/PUT/DELETE `/api/transactions` 接口。
 
-将后端持久化从内存切换到 PostgreSQL，并验证服务重启后数据仍然存在。
+### 3. 工程质量保障
+- [x] 创建 `TransactionApiTest` 集成测试，覆盖全链路。
+- [x] 修复 DTO 校验规则与 Entity 映射逻辑。
 
-## 任务清单
+## 下一步计划（Next Steps）
 
-### 1. 准备本地 PostgreSQL
+### 阶段一：前端联调与体验优化（优先）
+目标：支持前端完成核心记账功能的对接与演示。
 
-- 可选方案：
-- 方案 A：Docker（推荐）
-- 方案 B：本机直接安装 PostgreSQL
+1. **接口文档与契约冻结**
+   - 输出详细接口文档（API Markdown 或 Swagger/OpenAPI），明确字段类型与错误码。
+   - 确认 `categoryId` 获取接口（需提供 `GET /api/categories`）。
 
-若使用 Docker，创建并运行本地开发用 PostgreSQL 容器。
+2. **分类管理接口**
+   - 实现 `GET /api/categories`：查询系统默认 + 用户自定义分类。
+   - 实现 `POST /api/categories`：用户新增自定义分类。
 
-验收标准：
-- PostgreSQL 正常运行且可连接。
-- 可以通过 host/port/user/password 连通数据库。
+3. **异常处理标准化**
+   - 统一全局异常处理（`GlobalExceptionHandler`），将 404/400 错误转化为前端友好的 JSON 格式。
 
-### 2. 完成 Spring Data JPA + PostgreSQL 配置
+### 阶段二：高级功能扩展（业务闭环）
+目标：完成储蓄目标与共享账本逻辑。
 
-- 确认 `build.gradle.kts` 中已有依赖：
-- `spring-boot-starter-data-jpa`
-- `org.postgresql:postgresql`
+1. **储蓄目标（Saving Goals）**
+   - 建立 `SavingGoalService`。
+   - 实现与账单的关联（存钱也是一种支出/转账？需明确业务逻辑）。
 
-- 在 `application.yml` 或 `application-dev.yml` 中补充数据源配置：
-- `spring.datasource.url`
-- `spring.datasource.username`
-- `spring.datasource.password`
-- `spring.jpa.hibernate.ddl-auto`（开发环境建议先用 `update`）
+2. **共享账本（Shared Books）**
+   - 实现账本创建与邀请码生成（`InviteCode` 逻辑）。
+   - 实现成员加入与鉴权（Middleware/Interceptor 验证 `shared_book_id` 权限）。
 
-验收标准：
-- 服务能在连接 PostgreSQL 的情况下启动。
-- 启动日志中可见数据源初始化成功。
+3. **用户鉴权（Security）**
+   - 引入 Spring Security 或简单 Token 机制，替换目前的 `default_user` 硬编码。
 
-### 3. 用 JPA Repository 替换内存仓库
+## 如何验证当前功能
 
-- 保持现有 API 协议不变。
-- 为交易表建立 JPA Entity。
-- 新建 `JpaRepository` 接口。
-- 修改 Service 层，让它使用 JPA 仓库，而不是 `InMemoryTransactionRepository`。
-
-验收标准：
-- `POST /api/transactions` 可写入数据库。
-- `GET /api/transactions` 可从数据库读取。
-- `PUT`、`DELETE` 功能正常。
-
-### 4. 增加基础数据库迁移能力（推荐）
-
-- 引入 Flyway（或 Liquibase）进行版本化迁移。
-- 创建交易表初始迁移脚本。
-
-验收标准：
-- 启动时可自动完成 schema 初始化。
-- 不同环境下表结构一致、可复现。
-
-### 5. 增加持久化验证测试
-
-- 增加集成测试（或手工验证脚本）确认数据持久化。
-
-建议验证流程：
-1. 创建一条交易记录。
-2. 停止后端服务。
-3. 重新启动后端服务。
-4. 查询交易列表。
-5. 确认之前记录仍存在。
-
-验收标准：
-- 重启后数据不丢失。
-
-## 建议执行顺序
-
-1. 搭建本地 PostgreSQL
-2. 完成数据源配置
-3. 实现 JPA Entity + Repository + Service 改造
-4. 增加迁移脚本
-5. 完成持久化验证
-6. 对接前端联调
-
-## 手工验证命令
-
-启动后端：
+### 1. 自动化测试（推荐）
+运行集成测试，系统会自动启动 PostgreSQL 容器（或连接本地库）、执行迁移并验证 CRUD：
 
 ```powershell
-cd G:\account_book\account_book\backend
-.\gradlew.bat --stop
-.\gradlew.bat clean test
-.\gradlew.bat bootRun
+.\backend\gradlew.bat test -p backend
 ```
+查看测试报告：`backend/build/reports/tests/test/index.html`
 
-健康检查：
+### 2. 手工验证（使用 PowerShell）
 
+**前提**：确保本地 PostgreSQL 运行，且 `account_book` 数据库存在。
+
+启动服务：
 ```powershell
-Invoke-RestMethod -Method Get -Uri "http://localhost:8080/api/health"
+.\backend\gradlew.bat bootRun -p backend
 ```
 
-创建交易：
+验证流程：
 
-```powershell
-Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/transactions" -ContentType "application/json" -Body '{"amount":12.34,"category":"food","note":"lunch","date":"2026-03-09"}'
+1. **健康检查**: `Invoke-RestMethod -Method Get -Uri "http://localhost:8080/api/health"`
+2. **创建账单**:
+   ```powershell
+   $body = @{
+       amount = 88.88
+       categoryId = 1  # 假设 '餐饮' ID 为 1，若失败请先查询分类
+       remark = "周末聚餐"
+       merchant = "海底捞"
+       date = "2026-03-14"
+   } | ConvertTo-Json
+   Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/transactions" -ContentType "application/json" -Body $body
+   ```
+3. **查询账单**: `Invoke-RestMethod -Method Get -Uri "http://localhost:8080/api/transactions"`
+
+### 3. 数据库验证
+不仅看接口返回，还可直接查询数据库确认落库：
+```sql
+SELECT * FROM bills;
+SELECT * FROM categories;
 ```
 
-查询列表：
-
-```powershell
-Invoke-RestMethod -Method Get -Uri "http://localhost:8080/api/transactions"
-```
-
-## 风险与注意事项
-
-- 若出现 Gradle/JDK 不匹配，先确认项目 Gradle JVM 是否为 JDK 21。
-- 若数据库连接失败，重点检查 `url/username/password` 和端口占用。
-- 凭据不要直接提交到 Git，生产环境建议使用环境变量。
-
-## 完成定义（Definition of Done）
-
-- 后端已切换到 PostgreSQL 持久化。
-- 服务重启后交易数据仍存在。
-- 核心交易接口冒烟测试通过。
-- 构建和测试结果为绿色（通过）。

@@ -1,0 +1,14 @@
+### 创建一笔账单
+POST http://localhost:8080/api/transactions
+Content-Type: application/json
+
+{
+  "amount": 99.50,
+  "categoryId": 1,
+  "remark": "请客吃饭",
+  "merchant": "海底捞火锅",
+  "date": "2026-03-14"
+}
+
+### 查询所有账单
+GET http://localhost:8080/api/transactions
