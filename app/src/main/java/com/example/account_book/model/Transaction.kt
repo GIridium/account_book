@@ -16,6 +16,7 @@ data class Transaction(
     val amount: Double = 0.0,
     val category: Category = Category.OTHER,
     val note: String = "",
+    val merchant: String = "", // Added merchant field
     val type: TransactionType = TransactionType.EXPENSE,
     val date: Date = Date()
 ) : Parcelable

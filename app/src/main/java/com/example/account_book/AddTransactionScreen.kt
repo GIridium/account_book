@@ -27,6 +27,7 @@ import com.example.account_book.ui.theme.IncomeGreen
 import com.example.account_book.utils.toCalendar
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,6 +48,7 @@ fun AddTransactionScreen(
     val context = LocalContext.current
 
     val quickAmounts = listOf(10.0, 20.0, 50.0)
+    val scope = rememberCoroutineScope() // Added scope
 
     Scaffold(
         topBar = {
@@ -418,17 +420,19 @@ fun AddTransactionScreen(
 
             Button(
                 onClick = {
-                    val amountValue = amount.toDoubleOrNull()
-                    if (amountValue != null) {
-                        val transaction = Transaction(
-                            amount = amountValue,
-                            category = selectedCategory,
-                            note = note,
-                            type = transactionType,
-                            date = selectedDate
-                        )
-                        TransactionRepository.addTransaction(transaction)
-                        onNavigateBack()
+                    scope.launch {
+                        val amountValue = amount.toDoubleOrNull()
+                        if (amountValue != null) {
+                            val transaction = Transaction(
+                                amount = amountValue,
+                                category = selectedCategory,
+                                note = note,
+                                type = transactionType,
+                                date = selectedDate
+                            )
+                            TransactionRepository.addTransaction(transaction)
+                            onNavigateBack()
+                        }
                     }
                 },
                 modifier = Modifier

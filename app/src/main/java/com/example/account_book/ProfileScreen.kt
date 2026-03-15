@@ -28,8 +28,16 @@ fun ProfileScreen() {
     // 从全局状态获取深色模式值
     val isDarkMode by ThemeState.isDarkMode
     var isNotificationsEnabled by remember { mutableStateOf(true) }
-    val summary = TransactionRepository.getSummary()
-    val allTransactions = TransactionRepository.getAllTransactions()
+
+    val allTransactions by produceState<List<Transaction>>(initialValue = emptyList()) {
+        value = try {
+            TransactionRepository.getAllTransactions()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    val summary = TransactionRepository.getSummary(allTransactions)
     val totalTransactions = allTransactions.size
     val categoryStats = allTransactions
         .groupBy { it.category.displayName }

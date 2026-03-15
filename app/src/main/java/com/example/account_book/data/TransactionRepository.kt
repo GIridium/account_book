@@ -6,22 +6,35 @@ import com.example.account_book.model.TransactionType
 import java.util.*
 
 object TransactionRepository {
-    private val transactions = mutableListOf<Transaction>()
-    private var nextId = 1
+    // Removed in-memory list and nextId counter
 
-    fun addTransaction(transaction: Transaction) {
-        transactions.add(transaction.copy(id = nextId++))
+    suspend fun addTransaction(transaction: Transaction) {
+        try {
+            val networkTransaction = com.example.account_book.utils.Mapper.toNetworkTransaction(transaction)
+            com.example.account_book.network.RetrofitClient.apiService.createTransaction(networkTransaction)
+        } catch (e: Exception) {
+            e.printStackTrace() // Log error
+        }
     }
 
-    fun getAllTransactions(): List<Transaction> = transactions.toList()
+    suspend fun getAllTransactions(): List<Transaction> {
+        return try {
+            val networkTransactions = com.example.account_book.network.RetrofitClient.apiService.getTransactions()
+            networkTransactions.map { com.example.account_book.utils.Mapper.toTransaction(it) }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
 
-    fun getTransactionsByDateRange(start: Date, end: Date): List<Transaction> {
-        return transactions.filter { transaction ->
+    suspend fun getTransactionsByDateRange(start: Date, end: Date): List<Transaction> {
+        val allTransactions = getAllTransactions()
+        return allTransactions.filter { transaction ->
             transaction.date.time in start.time..end.time
         }
     }
 
-    fun getTodayTransactions(): List<Transaction> {
+    suspend fun getTodayTransactions(): List<Transaction> {
         val calendar = Calendar.getInstance()
         calendar.set(Calendar.HOUR_OF_DAY, 0)
         calendar.set(Calendar.MINUTE, 0)
@@ -38,7 +51,7 @@ object TransactionRepository {
         return getTransactionsByDateRange(startOfDay, endOfDay)
     }
 
-    fun getThisWeekTransactions(): List<Transaction> {
+    suspend fun getThisWeekTransactions(): List<Transaction> {
         val calendar = Calendar.getInstance()
         calendar.set(Calendar.DAY_OF_WEEK, calendar.firstDayOfWeek)
         calendar.set(Calendar.HOUR_OF_DAY, 0)
@@ -54,7 +67,7 @@ object TransactionRepository {
         return getTransactionsByDateRange(startOfWeek, endOfWeek)
     }
 
-    fun getThisMonthTransactions(): List<Transaction> {
+    suspend fun getThisMonthTransactions(): List<Transaction> {
         val calendar = Calendar.getInstance()
         calendar.set(Calendar.DAY_OF_MONTH, 1)
         calendar.set(Calendar.HOUR_OF_DAY, 0)
@@ -70,13 +83,13 @@ object TransactionRepository {
         return getTransactionsByDateRange(startOfMonth, endOfMonth)
     }
 
-    fun getCustomRangeTransactions(start: Date, end: Date): List<Transaction> {
+    suspend fun getCustomRangeTransactions(start: Date, end: Date): List<Transaction> {
         return getTransactionsByDateRange(start, end)
     }
 
     // 修复：添加无参数重载版本
-    fun getSummary(): Summary {
-        return getSummary(transactions)
+    suspend fun getSummary(): Summary {
+        return getSummary(getAllTransactions())
     }
 
     fun getSummary(transactions: List<Transaction>): Summary {

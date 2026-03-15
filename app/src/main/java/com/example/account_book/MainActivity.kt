@@ -173,20 +173,25 @@ fun MainScreen(
     var customStartDate by remember { mutableStateOf<Date?>(null) }
     var customEndDate by remember { mutableStateOf<Date?>(null) }
     val scrollState = rememberScrollState()
-    val transactions = remember(selectedFilter, customStartDate, customEndDate) {
-        when (selectedFilter) {
-            TimeFilter.TODAY -> TransactionRepository.getTodayTransactions()
-            TimeFilter.WEEK -> TransactionRepository.getThisWeekTransactions()
-            TimeFilter.MONTH -> TransactionRepository.getThisMonthTransactions()
-            TimeFilter.CUSTOM -> {
-                if (customStartDate != null && customEndDate != null) {
-                    TransactionRepository.getCustomRangeTransactions(customStartDate!!, customEndDate!!)
-                } else {
-                    TransactionRepository.getThisMonthTransactions()
+    val transactions by produceState<List<Transaction>>(initialValue = emptyList(), key1 = selectedFilter, key2 = customStartDate, key3 = customEndDate) {
+        value = try {
+            when (selectedFilter) {
+                TimeFilter.TODAY -> TransactionRepository.getTodayTransactions()
+                TimeFilter.WEEK -> TransactionRepository.getThisWeekTransactions()
+                TimeFilter.MONTH -> TransactionRepository.getThisMonthTransactions()
+                TimeFilter.CUSTOM -> {
+                    if (customStartDate != null && customEndDate != null) {
+                        TransactionRepository.getCustomRangeTransactions(customStartDate!!, customEndDate!!)
+                    } else {
+                        TransactionRepository.getThisMonthTransactions()
+                    }
                 }
             }
+        } catch (e: Exception) {
+            emptyList()
         }
     }
+
     val summary = TransactionRepository.getSummary(transactions)
     val balance = summary.totalIncome - summary.totalExpense
     val expenseByCategory = if (selectedFilter == TimeFilter.MONTH) {
