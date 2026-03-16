@@ -6,6 +6,7 @@ import com.example.app.model.Transaction
 import com.example.app.service.TransactionService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
+import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
 @RestController
@@ -28,11 +29,14 @@ class TransactionController(
     fun update(
         @PathVariable id: Long,
         @Valid @RequestBody req: UpdateTransactionRequest
-    ): Transaction = service.update(id, req)
+    ): ResponseEntity<Transaction> {
+        val updated = service.update(id, req)
+        return ResponseEntity.ok(updated)
+    }
 
     @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun delete(@PathVariable id: Long) {
+    fun delete(@PathVariable id: Long): ResponseEntity<Map<String, String>> {
         service.delete(id)
+        return ResponseEntity.ok(mapOf("message" to "Transaction deleted successfully"))
     }
 }
