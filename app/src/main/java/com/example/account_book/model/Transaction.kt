@@ -12,7 +12,7 @@ enum class TransactionType : Parcelable {
 
 @Parcelize
 data class Transaction(
-    val id: Int = 0,
+    val id: Long = 0,
     val amount: Double = 0.0,
     val category: Category = Category.OTHER,
     val note: String = "",

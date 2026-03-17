@@ -1,6 +1,7 @@
 // app/src/main/java/com/example/account_book/MainActivity.kt
 package com.example.account_book
 
+import android.app.DatePickerDialog
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,11 +21,16 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.account_book.data.TransactionRepository
 import com.example.account_book.model.Transaction
 import com.example.account_book.model.TransactionType
@@ -34,7 +40,8 @@ import com.example.account_book.ui.theme.IncomeGreen
 import com.example.account_book.utils.toCalendar
 import java.text.SimpleDateFormat
 import java.util.*
-import android.app.DatePickerDialog
+import kotlinx.coroutines.launch
+
 
 // 定义时间筛选枚举
 enum class TimeFilter {
@@ -97,6 +104,9 @@ fun AccountBookApp() {
                     MainScreen(
                         onNavigateToAddTransaction = {
                             navController.navigate("add_transaction")
+                        },
+                        onNavigateToEditTransaction = { transactionId ->
+                            navController.navigate("add_transaction?id=$transactionId")
                         }
                     )
                 }
@@ -109,11 +119,17 @@ fun AccountBookApp() {
                 composable("profile") {
                     ProfileScreen()
                 }
-                composable("add_transaction") {
+                composable(
+                    route = "add_transaction?id={id}",
+                    arguments = listOf(navArgument("id") { type = NavType.LongType; defaultValue = -1L })
+                ) { backStackEntry ->
+                    val id = backStackEntry.arguments?.getLong("id")
+                    val transactionId = if (id != null && id != -1L) id else null
                     AddTransactionScreen(
                         onNavigateBack = {
                             navController.popBackStack()
-                        }
+                        },
+                        transactionId = transactionId
                     )
                 }
             }
@@ -165,15 +181,39 @@ fun BottomNavigationBar(navController: NavController) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
-    onNavigateToAddTransaction: () -> Unit
+    onNavigateToAddTransaction: () -> Unit,
+    onNavigateToEditTransaction: (Long) -> Unit
 ) {
     var selectedFilter by remember { mutableStateOf(TimeFilter.MONTH) }
     var showFilterMenu by remember { mutableStateOf(false) }
     var showCustomDatePicker by remember { mutableStateOf(false) }
     var customStartDate by remember { mutableStateOf<Date?>(null) }
     var customEndDate by remember { mutableStateOf<Date?>(null) }
+    var transactionToDelete by remember { mutableStateOf<Transaction?>(null) }
+    var refreshTrigger by remember { mutableStateOf(0) }
+    val scope = rememberCoroutineScope()
+
+    // Refresh when screen becomes active
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                refreshTrigger++
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     val scrollState = rememberScrollState()
-    val transactions by produceState<List<Transaction>>(initialValue = emptyList(), key1 = selectedFilter, key2 = customStartDate, key3 = customEndDate) {
+    val transactions by produceState<List<Transaction>>(
+        initialValue = emptyList(),
+        key1 = selectedFilter,
+        key2 = refreshTrigger,
+        key3 = customStartDate to customEndDate
+    ) {
         value = try {
             when (selectedFilter) {
                 TimeFilter.TODAY -> TransactionRepository.getTodayTransactions()
@@ -565,7 +605,11 @@ fun MainScreen(
                 } else {
                     val sortedTransactions = transactions.sortedByDescending { it.date }
                     sortedTransactions.forEachIndexed { index, transaction ->
-                        TransactionItem(transaction = transaction)
+                        TransactionItem(
+                            transaction = transaction,
+                            onClick = { onNavigateToEditTransaction(transaction.id) },
+                            onDeleteClick = { transactionToDelete = transaction }
+                        )
                         if (index < sortedTransactions.size - 1) {
                             HorizontalDivider(
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
@@ -608,6 +652,33 @@ fun MainScreen(
         Spacer(modifier = Modifier.height(20.dp))
     }
 
+    if (transactionToDelete != null) {
+        val transaction = transactionToDelete!!
+        AlertDialog(
+            onDismissRequest = { transactionToDelete = null },
+            title = { Text("确认删除") },
+            text = { Text("确定要删除这条记录吗？") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            TransactionRepository.deleteTransaction(transaction.id)
+                            refreshTrigger++
+                            transactionToDelete = null
+                        }
+                    }
+                ) {
+                    Text("删除", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { transactionToDelete = null }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
     // 自定义日期范围选择对话框
     if (showCustomDatePicker) {
         CustomDateRangeDialog(
@@ -623,12 +694,17 @@ fun MainScreen(
 }
 
 @Composable
-fun TransactionItem(transaction: Transaction) {
+fun TransactionItem(
+    transaction: Transaction,
+    onClick: () -> Unit,
+    onDeleteClick: () -> Unit
+) {
     val isExpense = transaction.type == TransactionType.EXPENSE
     val dateFormat = SimpleDateFormat("MM-dd HH:mm", Locale.CHINA)
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -686,6 +762,16 @@ fun TransactionItem(transaction: Transaction) {
             fontWeight = FontWeight.Bold,
             color = if (isExpense) ExpenseRed else IncomeGreen
         )
+        IconButton(
+            onClick = onDeleteClick,
+            modifier = Modifier.size(24.dp)
+        ) {
+            Icon(
+                painter = painterResource(id = android.R.drawable.ic_menu_delete),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            )
+        }
     }
 }
 
@@ -807,3 +893,6 @@ fun CustomDateRangeDialog(
         ).show()
     }
 }
+
+
+

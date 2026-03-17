@@ -32,7 +32,8 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddTransactionScreen(
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    transactionId: Long? = null
 ) {
     var amount by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf(Category.OTHER) }
@@ -41,6 +42,7 @@ fun AddTransactionScreen(
     var selectedDate by remember { mutableStateOf(Date()) }
     var showDatePicker by remember { mutableStateOf(false) }
     var categoryExpanded by remember { mutableStateOf(false) }
+    var loading by remember { mutableStateOf(transactionId != null) }
 
     val scrollState = rememberScrollState()
     val dateFormat = SimpleDateFormat("yyyy年MM月dd日", Locale.CHINA)
@@ -50,12 +52,26 @@ fun AddTransactionScreen(
     val quickAmounts = listOf(10.0, 20.0, 50.0)
     val scope = rememberCoroutineScope() // Added scope
 
+    LaunchedEffect(transactionId) {
+        if (transactionId != null) {
+            val transaction = TransactionRepository.getTransaction(transactionId)
+            if (transaction != null) {
+                amount = transaction.amount.toString()
+                selectedCategory = transaction.category
+                note = transaction.note
+                transactionType = transaction.type
+                selectedDate = transaction.date
+            }
+            loading = false
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        "添加记录",
+                        if (transactionId != null) "编辑记录" else "添加记录",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -214,11 +230,11 @@ fun AddTransactionScreen(
                                 )
                             }
                         },
-                        isError = amount.isNotBlank() && amount.toDoubleOrNull() == null,
+                        isError = amount.isNotBlank() && (amount.toDoubleOrNull() == null || amount.toDouble() <= 0),
                         supportingText = {
-                            if (amount.isNotBlank() && amount.toDoubleOrNull() == null) {
+                            if (amount.isNotBlank() && (amount.toDoubleOrNull() == null || amount.toDouble() <= 0)) {
                                 Text(
-                                    text = "请输入有效的金额",
+                                    text = "请输入有效的金额（大于0）",
                                     color = ExpenseRed,
                                     fontSize = 12.sp
                                 )
@@ -424,13 +440,18 @@ fun AddTransactionScreen(
                         val amountValue = amount.toDoubleOrNull()
                         if (amountValue != null) {
                             val transaction = Transaction(
+                                id = transactionId ?: 0L,
                                 amount = amountValue,
                                 category = selectedCategory,
                                 note = note,
                                 type = transactionType,
                                 date = selectedDate
                             )
-                            TransactionRepository.addTransaction(transaction)
+                            if (transactionId != null) {
+                                TransactionRepository.updateTransaction(transaction)
+                            } else {
+                                TransactionRepository.addTransaction(transaction)
+                            }
                             onNavigateBack()
                         }
                     }
@@ -439,10 +460,10 @@ fun AddTransactionScreen(
                     .fillMaxWidth()
                     .height(56.dp)
                     .clip(RoundedCornerShape(16.dp)),
-                enabled = amount.isNotBlank() && amount.toDoubleOrNull() != null
+                enabled = amount.isNotBlank() && (amount.toDoubleOrNull()?.let { it > 0 } == true)
             ) {
                 Text(
-                    "保存记录",
+                    if (transactionId != null) "保存修改" else "保存记录",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )

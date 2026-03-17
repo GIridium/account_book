@@ -17,6 +17,23 @@ object TransactionRepository {
         }
     }
 
+    suspend fun updateTransaction(transaction: Transaction) {
+        try {
+            val networkTransaction = com.example.account_book.utils.Mapper.toNetworkTransaction(transaction)
+            com.example.account_book.network.RetrofitClient.apiService.updateTransaction(transaction.id, networkTransaction)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    suspend fun deleteTransaction(id: Long) {
+        try {
+            com.example.account_book.network.RetrofitClient.apiService.deleteTransaction(id)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     suspend fun getAllTransactions(): List<Transaction> {
         return try {
             val networkTransactions = com.example.account_book.network.RetrofitClient.apiService.getTransactions()
@@ -24,6 +41,16 @@ object TransactionRepository {
         } catch (e: Exception) {
             e.printStackTrace()
             emptyList()
+        }
+    }
+
+    suspend fun getTransaction(id: Long): Transaction? {
+        return try {
+            val networkTransaction = com.example.account_book.network.RetrofitClient.apiService.getTransaction(id)
+            com.example.account_book.utils.Mapper.toTransaction(networkTransaction)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
         }
     }
 

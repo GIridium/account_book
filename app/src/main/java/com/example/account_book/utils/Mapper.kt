@@ -13,7 +13,7 @@ object Mapper {
 
     fun toTransaction(networkTransaction: NetworkTransaction): Transaction {
         return Transaction(
-            id = networkTransaction.id ?: 0,
+            id = networkTransaction.id ?: 0L,
             amount = networkTransaction.amount,
             category = mapIdToCategory(networkTransaction.categoryId),
             note = networkTransaction.remark ?: "",
@@ -29,7 +29,7 @@ object Mapper {
 
     fun toNetworkTransaction(transaction: Transaction): NetworkTransaction {
         return NetworkTransaction(
-            // id is likely ignored by backend on create
+            id = if (transaction.id == 0L) null else transaction.id,
             amount = transaction.amount,
             categoryId = mapCategoryToId(transaction.category),
             remark = transaction.note,
