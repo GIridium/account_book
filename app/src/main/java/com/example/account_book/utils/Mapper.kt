@@ -48,6 +48,13 @@ object Mapper {
             6L -> Category.HOUSING
             7L -> Category.MEDICAL
             8L -> Category.OTHER
+            9L -> Category.SALARY_INCOME
+            10L -> Category.OVERTIME_INCOME
+            11L -> Category.BONUS_INCOME
+            12L -> Category.PART_TIME_INCOME
+            13L -> Category.BUSINESS_INCOME
+            14L -> Category.INVESTMENT_INCOME
+            15L -> Category.GIFT_INCOME
             else -> Category.OTHER
         }
     }
@@ -62,7 +69,13 @@ object Mapper {
             Category.HOUSING -> 6L
             Category.MEDICAL -> 7L
             Category.OTHER -> 8L
+            Category.SALARY_INCOME -> 9L
+            Category.OVERTIME_INCOME -> 10L
+            Category.BONUS_INCOME -> 11L
+            Category.PART_TIME_INCOME -> 12L
+            Category.BUSINESS_INCOME -> 13L
+            Category.INVESTMENT_INCOME -> 14L
+            Category.GIFT_INCOME -> 15L
         }
     }
 }
-

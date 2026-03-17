@@ -46,32 +46,58 @@ fun AddTransactionScreen(
 
     val scrollState = rememberScrollState()
     val dateFormat = SimpleDateFormat("yyyy年MM月dd日", Locale.CHINA)
-    val categories = Category.values()
     val context = LocalContext.current
 
-    val quickAmounts = listOf(10.0, 20.0, 50.0)
-    val scope = rememberCoroutineScope() // Added scope
+    // ✅ 动态生成分类列表：根据 transactionType 过滤 Category.values()
+    val incomeCategories = listOf(
+        Category.SALARY_INCOME,
+        Category.OVERTIME_INCOME,
+        Category.BONUS_INCOME,
+        Category.PART_TIME_INCOME,
+        Category.BUSINESS_INCOME,
+        Category.INVESTMENT_INCOME,
+        Category.GIFT_INCOME,
+        Category.OTHER
+    )
+    val expenseCategories = Category.values().filter { it != Category.SALARY_INCOME &&
+            it != Category.OVERTIME_INCOME &&
+            it != Category.BONUS_INCOME &&
+            it != Category.PART_TIME_INCOME &&
+            it != Category.BUSINESS_INCOME &&
+            it != Category.INVESTMENT_INCOME &&
+            it != Category.GIFT_INCOME }
 
-    LaunchedEffect(transactionId) {
+    val categories = if (transactionType == TransactionType.INCOME) incomeCategories else expenseCategories
+
+    // ✅ 确保初始 selectedCategory 是当前类型的有效值（防止加载旧数据时类型错位）
+    LaunchedEffect(transactionType, transactionId) {
         if (transactionId != null) {
             val transaction = TransactionRepository.getTransaction(transactionId)
             if (transaction != null) {
                 amount = transaction.amount.toString()
-                selectedCategory = transaction.category
                 note = transaction.note
                 transactionType = transaction.type
                 selectedDate = transaction.date
+                // ✅ 安全设置：仅当 transaction.category 属于当前类型列表时才赋值，否则 fallback to OTHER
+                selectedCategory = if (categories.contains(transaction.category)) {
+                    transaction.category
+                } else {
+                    if (transaction.type == TransactionType.INCOME) Category.OTHER else Category.FOOD
+                }
             }
             loading = false
         }
     }
+
+    val quickAmounts = listOf(10.0, 20.0, 50.0)
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        if (transactionId != null) "编辑记录" else "添加记录",
+                        if (transactionId != null) "编辑交易" else "添加交易",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -103,7 +129,7 @@ fun AddTransactionScreen(
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 收支类型选择卡片
+            // 类型切换 Chip
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -177,7 +203,7 @@ fun AddTransactionScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 金额输入卡片
+            // 金额输入
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -234,7 +260,7 @@ fun AddTransactionScreen(
                         supportingText = {
                             if (amount.isNotBlank() && (amount.toDoubleOrNull() == null || amount.toDouble() <= 0)) {
                                 Text(
-                                    text = "请输入有效的金额（大于0）",
+                                    text = "请输入大于0的数字",
                                     color = ExpenseRed,
                                     fontSize = 12.sp
                                 )
@@ -275,7 +301,7 @@ fun AddTransactionScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 类别选择卡片
+            // 分类选择
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -308,7 +334,7 @@ fun AddTransactionScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .menuAnchor(),
-                            placeholder = { Text("选择分类") },
+                            placeholder = { Text("请选择分类") },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
                             shape = RoundedCornerShape(12.dp),
                             leadingIcon = {
@@ -341,7 +367,7 @@ fun AddTransactionScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 日期选择卡片
+            // 日期选择
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -389,7 +415,7 @@ fun AddTransactionScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 备注输入卡片
+            // 备注
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -415,7 +441,7 @@ fun AddTransactionScreen(
                         value = note,
                         onValueChange = { note = it },
                         label = null,
-                        placeholder = { Text("添加备注信息（可选）") },
+                        placeholder = { Text("可选：输入交易备注信息") },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         leadingIcon = {
@@ -434,11 +460,12 @@ fun AddTransactionScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
+            // 提交按钮
             Button(
                 onClick = {
                     scope.launch {
                         val amountValue = amount.toDoubleOrNull()
-                        if (amountValue != null) {
+                        if (amountValue != null && amountValue > 0) {
                             val transaction = Transaction(
                                 id = transactionId ?: 0L,
                                 amount = amountValue,
@@ -463,7 +490,7 @@ fun AddTransactionScreen(
                 enabled = amount.isNotBlank() && (amount.toDoubleOrNull()?.let { it > 0 } == true)
             ) {
                 Text(
-                    if (transactionId != null) "保存修改" else "保存记录",
+                    if (transactionId != null) "保存修改" else "添加交易",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
