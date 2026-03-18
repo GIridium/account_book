@@ -12,6 +12,9 @@ class CategoryEntity(
     @Column(length = 50, nullable = false)
     val name: String,
 
+    @Column(length = 20, nullable = false)
+    val type: String = "EXPENSE",
+
     @Column(length = 50)
     val icon: String? = null,
 

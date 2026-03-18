@@ -45,6 +45,7 @@ class BillEntity(
             amount = amount,
             categoryId = category.id!!,
             categoryName = category.name,
+            type = category.type,
             remark = remark,
             merchant = merchant,
             date = billDate,

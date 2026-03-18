@@ -9,6 +9,7 @@ data class Transaction(
     val amount: BigDecimal,
     val categoryId: Long,
     val categoryName: String,
+    val type: String,
     val remark: String?,
     val merchant: String?,
     val date: LocalDate,
