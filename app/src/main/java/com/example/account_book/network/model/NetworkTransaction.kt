@@ -8,6 +8,7 @@ data class NetworkTransaction(
     @SerializedName("categoryId") val categoryId: Long,
     @SerializedName("remark") val remark: String?,
     @SerializedName("merchant") val merchant: String?,
+    @SerializedName("type") val type: String? = null,
     @SerializedName("date") val date: String // Format: YYYY-MM-DD
 )
 

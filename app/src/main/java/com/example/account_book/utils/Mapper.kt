@@ -12,13 +12,24 @@ object Mapper {
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
     fun toTransaction(networkTransaction: NetworkTransaction): Transaction {
+        val category = mapIdToCategory(networkTransaction.categoryId)
+        val transactionType = try {
+            if (networkTransaction.type != null) {
+                TransactionType.valueOf(networkTransaction.type)
+            } else {
+                category.type
+            }
+        } catch (e: IllegalArgumentException) {
+            category.type
+        }
+
         return Transaction(
             id = networkTransaction.id ?: 0L,
             amount = networkTransaction.amount,
-            category = mapIdToCategory(networkTransaction.categoryId),
+            category = category,
             note = networkTransaction.remark ?: "",
             merchant = networkTransaction.merchant ?: "",
-            type = TransactionType.EXPENSE, // Defaulting to Expense as API doesn't specify
+            type = transactionType,
             date = try {
                 dateFormat.parse(networkTransaction.date) ?: Date()
             } catch (e: Exception) {
@@ -34,6 +45,7 @@ object Mapper {
             categoryId = mapCategoryToId(transaction.category),
             remark = transaction.note,
             merchant = transaction.merchant,
+            type = transaction.type.name,
             date = dateFormat.format(transaction.date)
         )
     }
@@ -55,6 +67,7 @@ object Mapper {
             13L -> Category.BUSINESS_INCOME
             14L -> Category.INVESTMENT_INCOME
             15L -> Category.GIFT_INCOME
+            16L -> Category.OTHER_INCOME
             else -> Category.OTHER
         }
     }
@@ -76,6 +89,7 @@ object Mapper {
             Category.BUSINESS_INCOME -> 13L
             Category.INVESTMENT_INCOME -> 14L
             Category.GIFT_INCOME -> 15L
+            Category.OTHER_INCOME -> 16L
         }
     }
 }

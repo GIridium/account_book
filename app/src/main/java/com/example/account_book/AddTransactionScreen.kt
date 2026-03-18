@@ -49,25 +49,9 @@ fun AddTransactionScreen(
     val context = LocalContext.current
 
     // ✅ 动态生成分类列表：根据 transactionType 过滤 Category.values()
-    val incomeCategories = listOf(
-        Category.SALARY_INCOME,
-        Category.OVERTIME_INCOME,
-        Category.BONUS_INCOME,
-        Category.PART_TIME_INCOME,
-        Category.BUSINESS_INCOME,
-        Category.INVESTMENT_INCOME,
-        Category.GIFT_INCOME,
-        Category.OTHER
-    )
-    val expenseCategories = Category.values().filter { it != Category.SALARY_INCOME &&
-            it != Category.OVERTIME_INCOME &&
-            it != Category.BONUS_INCOME &&
-            it != Category.PART_TIME_INCOME &&
-            it != Category.BUSINESS_INCOME &&
-            it != Category.INVESTMENT_INCOME &&
-            it != Category.GIFT_INCOME }
-
-    val categories = if (transactionType == TransactionType.INCOME) incomeCategories else expenseCategories
+    val categories = remember(transactionType) {
+        Category.entries.filter { it.type == transactionType }
+    }
 
     // ✅ 确保初始 selectedCategory 是当前类型的有效值（防止加载旧数据时类型错位）
     LaunchedEffect(transactionType, transactionId) {
@@ -82,10 +66,15 @@ fun AddTransactionScreen(
                 selectedCategory = if (categories.contains(transaction.category)) {
                     transaction.category
                 } else {
-                    if (transaction.type == TransactionType.INCOME) Category.OTHER else Category.FOOD
+                    if (transaction.type == TransactionType.INCOME) Category.OTHER_INCOME else Category.FOOD
                 }
             }
             loading = false
+        } else {
+             // For new transaction, ensure default category matches type
+             if (!categories.contains(selectedCategory)) {
+                 selectedCategory = categories.firstOrNull() ?: Category.OTHER
+             }
         }
     }
 
