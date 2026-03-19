@@ -28,6 +28,13 @@ enum class Category(val displayName: String, val type: TransactionType) : Parcel
     OTHER("其他", TransactionType.EXPENSE),
     OTHER_INCOME("其他", TransactionType.INCOME);
 
+    val uniqueDisplayName: String
+        get() = when (this) {
+            OTHER -> "其他(支出)"
+            OTHER_INCOME -> "其他(收入)"
+            else -> displayName
+        }
+
     companion object {
         fun fromDisplayName(name: String, type: TransactionType = TransactionType.EXPENSE): Category {
             return entries.find { it.displayName == name && it.type == type } ?: OTHER
