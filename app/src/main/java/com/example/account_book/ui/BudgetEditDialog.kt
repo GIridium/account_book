@@ -14,7 +14,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.account_book.model.Budget
 import com.example.account_book.model.Category
-import com.example.account_book.data.BudgetRepository // 新增导入
 import kotlin.collections.filterIndexed
 import kotlin.collections.firstOrNull
 import kotlin.collections.forEach
@@ -28,7 +27,6 @@ import kotlin.text.toFloatOrNull
 @Composable
 fun BudgetEditDialog(
     visible: Boolean,
-    originBudgets: List<Budget>,
     onSave: (List<Budget>) -> Unit,
     budgets: List<Budget>,
     categoryOptions: List<Category>,
@@ -37,6 +35,14 @@ fun BudgetEditDialog(
 ) {
     // 注意：budgetList用不可变list结构
     var budgetList by remember { mutableStateOf(budgets) }
+
+    // Sync budgetList with incoming budgets or when dialog becomes visible
+    LaunchedEffect(visible, budgets) {
+        if (visible) {
+            budgetList = budgets
+        }
+    }
+
     var adding by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf(Category.OTHER) }
     var inputLimit by remember { mutableStateOf("") }
@@ -67,8 +73,6 @@ fun BudgetEditDialog(
                                 budgetList = budgetList.mapIndexed { i, item ->
                                     if (i == idx) item.copy(limit = v) else item
                                 }
-                                // 保存到全局Repository
-                                BudgetRepository.setBudgets(budgetList)
                                 onBudgetsChange(budgetList)
                             },
                             label = { Text("额度") },
@@ -77,14 +81,13 @@ fun BudgetEditDialog(
                         )
                         IconButton(onClick = {
                             budgetList = budgetList.filterIndexed { i, _ -> i != idx }
-                            BudgetRepository.setBudgets(budgetList)
                             onBudgetsChange(budgetList)
                         }) {
                             Icon(Icons.Default.Delete, contentDescription = "删除", tint = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
-                Divider()
+                HorizontalDivider()
                 // 新增预算
                 if (adding) {
                     Row(
@@ -105,7 +108,7 @@ fun BudgetEditDialog(
                                 label = { Text("分类") },
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
                                 modifier = Modifier
-                                    .menuAnchor()
+                                    .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
                                     .fillMaxWidth()
                             )
                             ExposedDropdownMenu(
@@ -136,9 +139,17 @@ fun BudgetEditDialog(
                                 val limitNum = inputLimit.toFloatOrNull() ?: 0f
                                 val categoryName = selectedCategory.uniqueDisplayName
                                 if (categoryName.isNotBlank() && limitNum > 0) {
-                                    // 新增预算，重新生成新列表
-                                    budgetList = budgetList + Budget(categoryName, limitNum, 0f)
-                                    BudgetRepository.setBudgets(budgetList)
+                                    // 检查是否存在同名分类
+                                    val existingIndex = budgetList.indexOfFirst { it.category == categoryName }
+                                    if (existingIndex != -1) {
+                                        // 存在则更新
+                                        budgetList = budgetList.mapIndexed { index, budget ->
+                                            if (index == existingIndex) budget.copy(limit = limitNum) else budget
+                                        }
+                                    } else {
+                                        // 不存在则新增
+                                        budgetList = budgetList + Budget(categoryName, limitNum, 0f)
+                                    }
                                     onBudgetsChange(budgetList)
                                     inputLimit = ""
                                     adding = false
@@ -161,7 +172,6 @@ fun BudgetEditDialog(
         },
         confirmButton = {
             Button(onClick = {
-                BudgetRepository.setBudgets(budgetList)
                 onSave(budgetList)
                 onDismiss()
             }) { Text("完成") }

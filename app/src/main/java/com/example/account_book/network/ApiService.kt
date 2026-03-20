@@ -1,5 +1,6 @@
 package com.example.account_book.network
 
+import com.example.account_book.model.Budget
 import com.example.account_book.network.model.NetworkTransaction
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -23,4 +24,13 @@ interface ApiService {
 
     @DELETE("api/transactions/{id}")
     suspend fun deleteTransaction(@Path("id") id: Long)
+
+    @GET("api/budgets")
+    suspend fun getBudgets(): List<Budget>
+
+    @POST("api/budgets")
+    suspend fun setBudget(@Body budget: Budget): Budget
+
+    @DELETE("api/budgets/{category}")
+    suspend fun deleteBudget(@Path("category") category: String): retrofit2.Response<Unit>
 }

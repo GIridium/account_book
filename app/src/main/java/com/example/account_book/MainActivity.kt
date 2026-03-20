@@ -51,6 +51,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 
 
 // 定义时间筛选枚举
@@ -203,9 +204,13 @@ fun MainScreen(
     onNavigateToEditTransaction: (Long) -> Unit
 ) {
     // 预算（如用ViewModel请替换共享数据源）
-    var budgets by remember { mutableStateOf(BudgetRepository.getBudgets()) }
+    var budgets by remember { mutableStateOf<List<Budget>>(emptyList()) }
     var showEditBudgetDialog by remember { mutableStateOf(false) }
-    var isBudgetView by remember { mutableStateOf(true) }
+    var isBudgetView by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        budgets = BudgetRepository.getBudgets()
+    }
 
     var selectedFilter by remember { mutableStateOf(TimeFilter.MONTH) }
     var showFilterMenu by remember { mutableStateOf(false) }
@@ -384,25 +389,31 @@ fun MainScreen(
                             val filterMonth = calendar.get(Calendar.MONTH)
                             val filterYear = calendar.get(Calendar.YEAR)
                             val used = calculateBudgetUsed(budget, transactions, filterMonth, filterYear) // 动态计算本月支出
+
+                            // Determine category type for color
+                            val cat = Category.values().find { it.uniqueDisplayName == budget.category }
+                            val isIncome = cat?.type == TransactionType.INCOME
+                            val progressColor = if (isIncome) IncomeGreen else ExpenseRed
+
                             Text(
                                 "${budget.category}   ¥%.2f/¥%.2f  (%.0f%%)".format(
                                     used,
                                     budget.limit,
-                                    100 * used / budget.limit
+                                    if (budget.limit > 0) 100 * used / budget.limit else 0f
                                 ),
                                 color = MaterialTheme.colorScheme.onPrimary,
                                 fontSize = 15.sp
                             )
                             LinearProgressIndicator(
-                                progress = (used / budget.limit).coerceIn(0f, 1f),
-                                color = ExpenseRed,
+                                progress = if (budget.limit > 0) (used / budget.limit).coerceIn(0f, 1f) else 0f,
+                                color = progressColor,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(10.dp)
                             )
                             val remain = (budget.limit - used).coerceAtLeast(0f)
                             Text(
-                                "剩余：¥%.2f (%.0f%%)".format(remain, 100 * remain / budget.limit),
+                                "剩余：¥%.2f (%.0f%%)".format(remain, if (budget.limit > 0) 100 * remain / budget.limit else 0f),
                                 color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
                                 fontSize = 13.sp
                             )
@@ -421,12 +432,22 @@ fun MainScreen(
                         ) { Text("设置预算", fontSize = 14.sp) }
                     }
 
-                    // 切换按钮在卡片右上角
-                    IconButton(
-                        onClick = { isBudgetView = !isBudgetView },
-                        modifier = Modifier.align(Alignment.TopEnd)
+                    // 切换按钮在卡片右上角：显示方框“显示余额”
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 16.dp, end = 16.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f))
+                            .clickable { isBudgetView = !isBudgetView }
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "切换视图")
+                        Text(
+                            text = "显示余额",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
             }
@@ -502,27 +523,24 @@ fun MainScreen(
                                 )
                             }
                         }
-                        Button(
-                            onClick = { showEditBudgetDialog = true },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = MaterialTheme.colorScheme.primary
-                            ),
-                            shape = RoundedCornerShape(32.dp),
-                            modifier = Modifier
-                                .height(36.dp)
-                                .align(Alignment.End)
-                        ) {
-                            Text("设置预算", fontSize = 14.sp)
-                        }
                     }
 
-                    // 切换按钮在卡片右上角
-                    IconButton(
-                        onClick = { isBudgetView = !isBudgetView },
-                        modifier = Modifier.align(Alignment.TopEnd)
+                    // 切换按钮在卡片右上角：显示方框“显示预算”
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 16.dp, end = 16.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f))
+                            .clickable { isBudgetView = !isBudgetView }
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "切换视图")
+                        Text(
+                            text = "显示预算",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
             }
@@ -531,17 +549,18 @@ fun MainScreen(
         // 预算设置弹窗
         BudgetEditDialog(
             visible = showEditBudgetDialog,
-            originBudgets = budgets,
-            onSave = {
-                BudgetRepository.setBudgets(it) // 保存到全局
-                budgets = it                    // Compose刷新显示
+            onSave = { newBudgets ->
+                scope.launch {
+                    BudgetRepository.syncBudgets(newBudgets)
+                    budgets = BudgetRepository.getBudgets() // Reload fresh data
+                }
             },
             budgets = budgets,
             categoryOptions = Category.values().toList(),
             onDismiss = { showEditBudgetDialog = false },
             onBudgetsChange = {
-                BudgetRepository.setBudgets(it)
-                budgets = it
+                // Local update only if needed, or do nothing.
+                // We don't sync to network on every keystroke.
             }
         )
         Spacer(modifier = Modifier.height(24.dp))
@@ -1067,8 +1086,7 @@ fun HomeScreen(
 @Composable
 fun calculateBudgetUsed(budget: Budget, transactions: List<Transaction>, filterMonth: Int, filterYear: Int): Float {
     return transactions.filter {
-        it.type == TransactionType.EXPENSE &&
-                it.category.displayName == budget.category &&
+        it.category.uniqueDisplayName == budget.category &&
                 Calendar.getInstance().apply { time = it.date }
                     .get(Calendar.MONTH) == filterMonth &&
                 Calendar.getInstance().apply { time = it.date }.get(Calendar.YEAR) == filterYear
