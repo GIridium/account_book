@@ -12,3 +12,110 @@ Content-Type: application/json
 
 ### 查询所有账单
 GET http://localhost:8080/api/transactions
+
+### 获取预算列表
+GET http://localhost:8080/api/budgets
+
+### 设置预算 (收入分类 - 工资收入)
+POST http://localhost:8080/api/budgets
+Content-Type: application/json
+
+{
+  "category": "工资收入",
+  "limit": 10000.00
+}
+
+### 设置预算 (支出分类 - 餐饮)
+POST http://localhost:8080/api/budgets
+Content-Type: application/json
+
+{
+  "category": "餐饮",
+  "limit": 2000.00
+}
+
+### 更新预算 (支出分类 - 餐饮)
+POST http://localhost:8080/api/budgets
+Content-Type: application/json
+
+{
+  "category": "餐饮",
+  "limit": 2500.00
+}
+
+### 删除预算
+DELETE http://localhost:8080/api/budgets/餐饮
+
+### --- 新增收入分类测试 ---
+
+### 设置预算 - 工资收入
+POST http://localhost:8080/api/budgets
+Content-Type: application/json
+
+{
+  "category": "工资收入",
+  "limit": 15000.00
+}
+
+### 设置预算 - 加班收入
+POST http://localhost:8080/api/budgets
+Content-Type: application/json
+
+{
+  "category": "加班收入",
+  "limit": 2000.00
+}
+
+### 设置预算 - 奖金收入
+POST http://localhost:8080/api/budgets
+Content-Type: application/json
+
+{
+  "category": "奖金收入",
+  "limit": 50000.00
+}
+
+### 设置预算 - 兼职收入
+POST http://localhost:8080/api/budgets
+Content-Type: application/json
+
+{
+  "category": "兼职收入",
+  "limit": 3000.00
+}
+
+### 设置预算 - 经营所得
+POST http://localhost:8080/api/budgets
+Content-Type: application/json
+
+{
+  "category": "经营所得",
+  "limit": 100000.00
+}
+
+### 设置预算 - 投资收入
+POST http://localhost:8080/api/budgets
+Content-Type: application/json
+
+{
+  "category": "投资收入",
+  "limit": 5000.00
+}
+
+### 设置预算 - 礼金收入
+POST http://localhost:8080/api/budgets
+Content-Type: application/json
+
+{
+  "category": "礼金收入",
+  "limit": 1000.00
+}
+
+### 设置预算 - 其他 (收入)
+POST http://localhost:8080/api/budgets
+Content-Type: application/json
+
+{
+  "category": "其他",
+  "limit": 500.00
+}
