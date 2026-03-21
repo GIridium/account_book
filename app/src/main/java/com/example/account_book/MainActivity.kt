@@ -5,6 +5,7 @@ import android.app.DatePickerDialog
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -51,29 +52,23 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material.icons.filled.Add // 引入加号图标
 
 
-// 定义时间筛选枚举
+// 时间筛选枚举
 enum class TimeFilter {
     TODAY, WEEK, MONTH, CUSTOM
 }
 
-// 定义底部导航项数据类
+// 底部导航项数据类
 data class BottomNavItem(
     val title: String,
     val route: String,
     val icon: Int
 )
 
-//3.14+ 预算类 sos
-data class Budget(
-    val category: String,
-    val limit: Float,
-    val spent: Float
-)
 
-// 创建全局的主题状态容器
+// 主题状态管理
 object ThemeState {
     private val _isDarkMode = mutableStateOf(false)
     val isDarkMode: State<Boolean> = _isDarkMode
@@ -203,22 +198,36 @@ fun MainScreen(
     onNavigateToAddTransaction: () -> Unit,
     onNavigateToEditTransaction: (Long) -> Unit
 ) {
-    // 预算（如用ViewModel请替换共享数据源）
+    // 模拟从ViewModel获取数据
     var budgets by remember { mutableStateOf<List<Budget>>(emptyList()) }
-    var showEditBudgetDialog by remember { mutableStateOf(false) }
-    var isBudgetView by rememberSaveable { mutableStateOf(false) }
+    var refreshTrigger by remember { mutableStateOf(0) }
 
-    LaunchedEffect(Unit) {
-        budgets = BudgetRepository.getBudgets()
+    LaunchedEffect(refreshTrigger) {
+        // Normalize category names (e.g. "其他" -> "其他(支出)") to avoid duplicates
+        // Use spent from backend response
+        budgets = BudgetRepository.getBudgets().map { b ->
+            val cats = Category.entries.filter { it.displayName == b.category }
+            val uniqueName = if (cats.size == 1) {
+                cats.first().uniqueDisplayName
+            } else if (b.category == "其他") {
+                Category.OTHER.uniqueDisplayName // Default to Expense if ambiguous
+            } else {
+                b.category
+            }
+            b.copy(category = uniqueName)
+        }
     }
 
-    var selectedFilter by remember { mutableStateOf(TimeFilter.MONTH) }
+    var showEditBudgetDialog by remember { mutableStateOf(false) }
+    // 3. 首页启动时先显示“当前余额”，使用 rememberSaveable 保持状态
+    var isBudgetView by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+
+    var selectedFilter by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(TimeFilter.MONTH) }
     var showFilterMenu by remember { mutableStateOf(false) }
     var showCustomDatePicker by remember { mutableStateOf(false) }
-    var customStartDate by remember { mutableStateOf<Date?>(null) }
-    var customEndDate by remember { mutableStateOf<Date?>(null) }
+    var customStartDate by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<Date?>(null) }
+    var customEndDate by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<Date?>(null) }
     var transactionToDelete by remember { mutableStateOf<Transaction?>(null) }
-    var refreshTrigger by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
 
     // Refresh when screen becomes active
@@ -260,6 +269,18 @@ fun MainScreen(
         }
     }
 
+    // 专门用于预算计算的本月数据，确保预算始终显示本月进度，不受上方时间筛选器影响
+    val monthTransactions by produceState<List<Transaction>>(
+        initialValue = emptyList(),
+        key1 = refreshTrigger
+    ) {
+        value = try {
+            TransactionRepository.getThisMonthTransactions()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
     val summary = TransactionRepository.getSummary(transactions)
     val balance = summary.totalIncome - summary.totalExpense
     val expenseByCategory = if (selectedFilter == TimeFilter.MONTH) {
@@ -272,402 +293,290 @@ fun MainScreen(
     }
 
     // ======================= UI ============================
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState)
-            .padding(all = 20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // 标题栏
-        Row(
+    // 使用 Box 作为根容器，以便可以将 FAB 固定在右下角
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(all = 20.dp)
+                .padding(bottom = 80.dp), // 增加底部内边距，防止最后的内容被 FAB 遮挡
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column {
-                Text(
-                    text = "我的账本",
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    lineHeight = 40.sp
-                )
-                Text(
-                    text = "记录每一笔收支",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
-            }
-            Box {
-                Button(
-                    onClick = { showFilterMenu = true },
-                    modifier = Modifier
-                        .width(100.dp)
-                        .height(40.dp),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                ) {
-                    Text(
-                        text = when (selectedFilter) {
-                            TimeFilter.TODAY -> "今日"
-                            TimeFilter.WEEK -> "本周"
-                            TimeFilter.MONTH -> "本月"
-                            TimeFilter.CUSTOM -> "自定义"
-                        },
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-                DropdownMenu(
-                    expanded = showFilterMenu,
-                    onDismissRequest = { showFilterMenu = false },
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    DropdownMenuItem(
-                        text = { Text(text = "今日") },
-                        onClick = {
-                            selectedFilter = TimeFilter.TODAY
-                            showFilterMenu = false
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text(text = "本周") },
-                        onClick = {
-                            selectedFilter = TimeFilter.WEEK
-                            showFilterMenu = false
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text(text = "本月") },
-                        onClick = {
-                            selectedFilter = TimeFilter.MONTH
-                            showFilterMenu = false
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text(text = "自定义") },
-                        onClick = {
-                            showCustomDatePicker = true
-                            showFilterMenu = false
-                        }
-                    )
-                }
-            }
-        }
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // ======= 预算/余额卡片切换区 =======
-        if (isBudgetView) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
-            ) {
-                Box(Modifier.fillMaxWidth()) {
-                    Column(
-                        Modifier
-                            .padding(24.dp)
-                            .align(Alignment.CenterStart)
-                    ) {
-                        Text(
-                            text = "预算概览",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        budgets.forEach { budget ->
-                            val calendar = Calendar.getInstance()
-                            calendar.time = Date() // or your filtering date
-                            val filterMonth = calendar.get(Calendar.MONTH)
-                            val filterYear = calendar.get(Calendar.YEAR)
-                            val used = calculateBudgetUsed(budget, transactions, filterMonth, filterYear) // 动态计算本月支出
-
-                            // Determine category type for color
-                            val cat = Category.values().find { it.uniqueDisplayName == budget.category }
-                            val isIncome = cat?.type == TransactionType.INCOME
-                            val progressColor = if (isIncome) IncomeGreen else ExpenseRed
-
-                            Text(
-                                "${budget.category}   ¥%.2f/¥%.2f  (%.0f%%)".format(
-                                    used,
-                                    budget.limit,
-                                    if (budget.limit > 0) 100 * used / budget.limit else 0f
-                                ),
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                fontSize = 15.sp
-                            )
-                            LinearProgressIndicator(
-                                progress = if (budget.limit > 0) (used / budget.limit).coerceIn(0f, 1f) else 0f,
-                                color = progressColor,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(10.dp)
-                            )
-                            val remain = (budget.limit - used).coerceAtLeast(0f)
-                            Text(
-                                "剩余：¥%.2f (%.0f%%)".format(remain, if (budget.limit > 0) 100 * remain / budget.limit else 0f),
-                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
-                                fontSize = 13.sp
-                            )
-                            Spacer(Modifier.height(10.dp))
-                        }
-                        Button(
-                            onClick = { showEditBudgetDialog = true },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = MaterialTheme.colorScheme.primary
-                            ),
-                            shape = RoundedCornerShape(32.dp),
-                            modifier = Modifier
-                                .height(36.dp)
-                                .align(Alignment.End)
-                        ) { Text("设置预算", fontSize = 14.sp) }
-                    }
-
-                    // 切换按钮在卡片右上角：显示方框“显示余额”
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(top = 16.dp, end = 16.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f))
-                            .clickable { isBudgetView = !isBudgetView }
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = "显示余额",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
-        } else {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
-            ) {
-                Box(Modifier.fillMaxWidth()) {
-                    Column(
-                        Modifier
-                            .padding(24.dp)
-                            .align(Alignment.CenterStart)
-                    ) {
-                        Text(
-                            text = "当前余额",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = String.format("¥ %.2f", balance),
-                            fontSize = 36.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            // 收入
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(
-                                    painter = painterResource(id = android.R.drawable.arrow_up_float),
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Text(
-                                    text = String.format("+%.2f", summary.totalIncome),
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimary
-                                )
-                                Text(
-                                    text = "收入",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
-                                )
-                            }
-                            // 支出
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(
-                                    painter = painterResource(id = android.R.drawable.arrow_down_float),
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Text(
-                                    text = String.format("-%.2f", summary.totalExpense),
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimary
-                                )
-                                Text(
-                                    text = "支出",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
-                                )
-                            }
-                        }
-                    }
-
-                    // 切换按钮在卡片右上角：显示方框“显示预算”
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(top = 16.dp, end = 16.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f))
-                            .clickable { isBudgetView = !isBudgetView }
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = "显示预算",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
-        }
-
-        // 预算设置弹窗
-        BudgetEditDialog(
-            visible = showEditBudgetDialog,
-            onSave = { newBudgets ->
-                scope.launch {
-                    BudgetRepository.syncBudgets(newBudgets)
-                    budgets = BudgetRepository.getBudgets() // Reload fresh data
-                }
-            },
-            budgets = budgets,
-            categoryOptions = Category.values().toList(),
-            onDismiss = { showEditBudgetDialog = false },
-            onBudgetsChange = {
-                // Local update only if needed, or do nothing.
-                // We don't sync to network on every keystroke.
-            }
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // 统计卡片
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
-        ) {
-            Column(
+            // 标题栏
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(all = 20.dp)
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "收支统计",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.height(20.dp))
-                // 收入明细
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(IncomeGreen)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "收入",
-                            fontSize = 16.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                Column {
                     Text(
-                        text = String.format("+¥ %.2f", summary.totalIncome),
-                        fontSize = 18.sp,
+                        text = "欢迎回来",
+                        fontSize = 32.sp,
                         fontWeight = FontWeight.Bold,
-                        color = IncomeGreen
+                        color = MaterialTheme.colorScheme.primary,
+                        lineHeight = 40.sp
+                    )
+                    Text(
+                        text = "记录每一笔收支",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
                 }
-                Spacer(modifier = Modifier.height(12.dp))
-                // 支出明细
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(ExpenseRed)
+                Box {
+                    Button(
+                        onClick = { showFilterMenu = true },
+                        modifier = Modifier
+                            .width(100.dp)
+                            .height(40.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                    ) {
                         Text(
-                            text = "支出",
-                            fontSize = 16.sp,
-                            color = MaterialTheme.colorScheme.onSurface
+                            text = when (selectedFilter) {
+                                TimeFilter.TODAY -> "今天"
+                                TimeFilter.WEEK -> "本周"
+                                TimeFilter.MONTH -> "本月"
+                                TimeFilter.CUSTOM -> "自定义"
+                            },
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
-                    Text(
-                        text = String.format("-¥ %.2f", summary.totalExpense),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = ExpenseRed
-                    )
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "结余",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = String.format("¥ %.2f", balance),
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (balance >= 0) IncomeGreen else ExpenseRed
-                    )
+                    DropdownMenu(
+                        expanded = showFilterMenu,
+                        onDismissRequest = { showFilterMenu = false },
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(text = "今天") },
+                            onClick = {
+                                selectedFilter = TimeFilter.TODAY
+                                showFilterMenu = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(text = "本周") },
+                            onClick = {
+                                selectedFilter = TimeFilter.WEEK
+                                showFilterMenu = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(text = "本月") },
+                            onClick = {
+                                selectedFilter = TimeFilter.MONTH
+                                showFilterMenu = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(text = "自定义") },
+                            onClick = {
+                                showCustomDatePicker = true
+                                showFilterMenu = false
+                            }
+                        )
+                    }
                 }
             }
-        }
+            Spacer(modifier = Modifier.height(24.dp))
 
-        Spacer(modifier = Modifier.height(24.dp))
-        // 本月支出分类饼图
-        if (selectedFilter == TimeFilter.MONTH && expenseByCategory.isNotEmpty()) {
+            // ======= 预算/余额卡片切换 =======
+            if (isBudgetView) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Box(Modifier.fillMaxWidth()) {
+                        Column(
+                            Modifier
+                                .padding(24.dp)
+                                .align(Alignment.CenterStart)
+                        ) {
+                            Text(
+                                text = "本月预算",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            budgets.forEach { budget ->
+                                // 实时计算已用金额：从本月交易记录中筛选出对应分类的交易并求和
+                                val used = monthTransactions
+                                    .filter { it.category.uniqueDisplayName == budget.category }
+                                    .sumOf { it.amount }
+                                    .toFloat()
+
+                                val cat = Category.entries.find { it.uniqueDisplayName == budget.category } ?: Category.OTHER
+                                val isIncome = cat.type == TransactionType.INCOME
+
+                                Text(
+                                    "${budget.category}   已${used}/限${budget.limit}  (${(if (budget.limit > 0) 100 * used / budget.limit else 0f).toInt()}%)",
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    fontSize = 15.sp
+                                )
+                                LinearProgressIndicator(
+                                    progress = { if (budget.limit > 0) (used / budget.limit).coerceIn(0f, 1f) else 0f },
+                                    color = if (isIncome) IncomeGreen else ExpenseRed,
+                                    trackColor = androidx.compose.ui.graphics.Color.White,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(10.dp)
+                                )
+                                val remain = (budget.limit - used).coerceAtLeast(0f)
+                                Text(
+                                    "剩余${remain} (${(if (budget.limit > 0) 100 * remain / budget.limit else 0f).toInt()}%)",
+                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                                    fontSize = 13.sp
+                                )
+                                Spacer(Modifier.height(10.dp))
+                            }
+                            Button(
+                                onClick = { showEditBudgetDialog = true },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.primary
+                                ),
+                                shape = RoundedCornerShape(32.dp),
+                                modifier = Modifier
+                                    .height(36.dp)
+                                    .align(Alignment.End)
+                            ) { Text("编辑预算", fontSize = 14.sp) }
+                        }
+
+                        // 右上角切换按钮
+                        OutlinedButton(
+                            onClick = { isBudgetView = !isBudgetView },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(8.dp),
+                            border = BorderStroke(1.dp, androidx.compose.ui.graphics.Color.White),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = androidx.compose.ui.graphics.Color.White
+                            )
+                        ) {
+                            Text("显示余额")
+                        }
+                    }
+                }
+            } else {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Box(Modifier.fillMaxWidth()) {
+                        Column(
+                            Modifier
+                                .padding(24.dp)
+                                .align(Alignment.CenterStart)
+                        ) {
+                            Text(
+                                text = "总余额",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = String.format("¥ %.2f", balance),
+                                fontSize = 36.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                // 收入
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(
+                                        painter = painterResource(id = android.R.drawable.arrow_up_float),
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Text(
+                                        text = String.format("+%.2f", summary.totalIncome),
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                    Text(
+                                        text = "收入",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
+                                    )
+                                }
+                                // 支出
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(
+                                        painter = painterResource(id = android.R.drawable.arrow_down_float),
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Text(
+                                        text = String.format("-%.2f", summary.totalExpense),
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                    Text(
+                                        text = "支出",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
+                                    )
+                                }
+                            }
+                            // Button removed here as requested
+                        }
+
+                        // 右上角切换按钮
+                        OutlinedButton(
+                            onClick = { isBudgetView = !isBudgetView },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(8.dp),
+                            border = BorderStroke(1.dp, androidx.compose.ui.graphics.Color.White),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = androidx.compose.ui.graphics.Color.White
+                            )
+                        ) {
+                            Text("显示预算")
+                        }
+                    }
+                }
+            }
+
+            // 预算编辑对话框
+            BudgetEditDialog(
+                visible = showEditBudgetDialog,
+                onSave = { newBudgets ->
+                    scope.launch {
+                        BudgetRepository.syncBudgets(newBudgets) // 保存预算
+                        budgets = newBudgets                     // Compose状态更新
+                    }
+                },
+                budgets = budgets,
+                categoryOptions = Category.entries.toList(),
+                onDismiss = { showEditBudgetDialog = false },
+                onBudgetsChange = {
+                    budgets = it
+                }
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 统计卡片
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -682,131 +591,231 @@ fun MainScreen(
                         .padding(all = 20.dp)
                 ) {
                     Text(
-                        text = "本月支出分类占比",
+                        text = "本月统计",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        color = MaterialTheme.colorScheme.primary
                     )
-                    val totalExpense = summary.totalExpense
-                    expenseByCategory.forEach { (category, amount) ->
-                        val percentage = (amount / totalExpense * 100).toInt()
-                        Column(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = category,
-                                    fontSize = 14.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = String.format("%d%%", percentage),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
+                    // 收入统计
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = Modifier
-                                    .fillMaxWidth(percentage / 100f)
-                                    .height(8.dp)
+                                    .size(8.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(IncomeGreen)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "收入",
+                                fontSize = 16.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        Text(
+                            text = String.format("+¥ %.2f", summary.totalIncome),
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = IncomeGreen
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    // 支出统计
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
                                     .clip(RoundedCornerShape(4.dp))
                                     .background(ExpenseRed)
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "支出",
+                                fontSize = 16.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        Text(
+                            text = String.format("-¥ %.2f", summary.totalExpense),
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = ExpenseRed
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "结余",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = String.format("¥ %.2f", balance),
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (balance >= 0) IncomeGreen else ExpenseRed
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            // 分类支出统计
+            if (selectedFilter == TimeFilter.MONTH && expenseByCategory.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(all = 20.dp)
+                    ) {
+                        Text(
+                            text = "支出分类统计",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+                        val totalExpense = summary.totalExpense
+                        expenseByCategory.forEach { (category, amount) ->
+                            val percentage = (amount / totalExpense * 100).toInt()
+                            Column(
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = category,
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = String.format("%d%%", percentage),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(percentage / 100f)
+                                        .height(8.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(ExpenseRed)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+            // 交易列表
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(all = 20.dp)
+                ) {
+                    Text(
+                        text = "交易记录",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    if (transactions.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "暂无记录",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            )
+                        }
+                    } else {
+                        val sortedTransactions = transactions.sortedByDescending { it.date }
+                        sortedTransactions.forEachIndexed { index, transaction ->
+                            TransactionItem(
+                                transaction = transaction,
+                                onClick = { onNavigateToEditTransaction(transaction.id) },
+                                onDeleteClick = { transactionToDelete = transaction }
+                            )
+                            if (index < sortedTransactions.size - 1) {
+                                HorizontalDivider(
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                                )
+                            }
                         }
                     }
                 }
             }
             Spacer(modifier = Modifier.height(24.dp))
-        }
-        // 交易记录列表
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+
+            // 【已移除】原来的底部大按钮
+            // 这里不再放置 Button，而是交给外层的 Box 处理 FloatingActionButton
+
+            Text(
+                text = "努力赚钱，好好记账",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
             )
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(all = 20.dp)
-            ) {
-                Text(
-                    text = "交易记录",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                if (transactions.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 32.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "暂无记录",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        )
-                    }
-                } else {
-                    val sortedTransactions = transactions.sortedByDescending { it.date }
-                    sortedTransactions.forEachIndexed { index, transaction ->
-                        TransactionItem(
-                            transaction = transaction,
-                            onClick = { onNavigateToEditTransaction(transaction.id) },
-                            onDeleteClick = { transactionToDelete = transaction }
-                        )
-                        if (index < sortedTransactions.size - 1) {
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-                            )
-                        }
-                    }
-                }
-            }
+            Spacer(modifier = Modifier.height(20.dp))
         }
-        Spacer(modifier = Modifier.height(24.dp))
-        // 记账按钮
-        Button(
+
+        // 新增：固定在右下角的浮动按钮 (FAB)
+        // padding 值根据底部导航栏高度和屏幕边缘调整
+        FloatingActionButton(
             onClick = onNavigateToAddTransaction,
             modifier = Modifier
-                .fillMaxWidth()
-                .height(64.dp)
-                .clip(RoundedCornerShape(32.dp)),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary
-            )
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 80.dp), // bottom=80dp 是为了避开底部导航栏
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
         ) {
             Icon(
-                painter = painterResource(id = android.R.drawable.ic_menu_add),
-                contentDescription = null,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "记一笔",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
+                imageVector = Icons.Default.Add,
+                contentDescription = "记账",
+                modifier = Modifier.size(28.dp)
             )
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "点击按钮添加新的收支记录",
-            fontSize = 13.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-        )
-        Spacer(modifier = Modifier.height(20.dp))
     }
 
     if (transactionToDelete != null) {
@@ -836,7 +845,7 @@ fun MainScreen(
         )
     }
 
-    // 自定义日期范围选择对话框
+    // 自定义日期范围选择器
     if (showCustomDatePicker) {
         CustomDateRangeDialog(
             onDismiss = { showCustomDatePicker = false },
@@ -1082,14 +1091,21 @@ fun HomeScreen(
 
 }
 
-//设置预算的月份筛选
-@Composable
-fun calculateBudgetUsed(budget: Budget, transactions: List<Transaction>, filterMonth: Int, filterYear: Int): Float {
-    return transactions.filter {
-        it.category.uniqueDisplayName == budget.category &&
-                Calendar.getInstance().apply { time = it.date }
-                    .get(Calendar.MONTH) == filterMonth &&
-                Calendar.getInstance().apply { time = it.date }.get(Calendar.YEAR) == filterYear
-    }.sumOf { it.amount }.toFloat()
-}
 
+
+//// 占位函数，防止编译错误（假设这些在其他文件中定义）
+//@Composable
+//fun AccountBookManagementScreen() { Text("账本管理") }
+//@Composable
+//fun AiChatScreen() { Text("AI 聊天") }
+//@Composable
+//fun ProfileScreen() { Text("个人中心") }
+//@Composable
+//fun AddTransactionScreen(onNavigateBack: () -> Unit, transactionId: Long?) { Text("添加/编辑交易") }
+//@Composable
+//fun BudgetProgressBar(category: String, limit: Float, spent: Float) {
+//    Column {
+//        Text("$category: $spent / $limit")
+//        LinearProgressIndicator(progress = (spent/limit).coerceIn(0f, 1f))
+//    }
+//}
